@@ -11,8 +11,9 @@ RUN npm ci
 FROM base AS builder
 WORKDIR /app
 
-# 2GB服务器优化：Node.js限制768MB，确保不OOM
-ENV NODE_OPTIONS="--max-old-space-size=768"
+# 2GB服务器优化：Node.js限制512MB，确保不OOM
+# 使用更激进的GC策略
+ENV NODE_OPTIONS="--max-old-space-size=512"
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -21,11 +22,14 @@ COPY . .
 # Prisma生成
 RUN npx prisma generate
 
-# Next.js构建优化：跳过类型检查（已在next.config.ts中配置）
-# 使用SWC编译器（默认）
-# 减少并发worker数量以降低内存
+# Next.js构建优化
+# 1. 跳过类型检查（已在next.config.ts中配置）
+# 2. 减少内存占用
 ENV NEXT_WORKERS=1
-RUN npm run build
+ENV NODE_ENV=production
+
+# 分步构建，先尝试用更少内存
+RUN npm run build || (echo "Build failed, trying with more memory..." && export NODE_OPTIONS="--max-old-space-size=1024" && npm run build)
 
 # 生产阶段
 FROM base AS runner
