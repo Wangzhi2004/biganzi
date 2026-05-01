@@ -43,7 +43,12 @@
       "Bash(git branch *)",
       "Bash(git remote *)",
       "Bash(git push *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(apt-get install *)",
+      "Bash(pip install *)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \"import socket; s=socket.socket\\(\\); s.settimeout\\(5\\); s.connect\\(\\('47.238.102.92',22\\)\\); print\\('OK'\\); s.close\\(\\)\")",
+      "Bash(git config *)"
     ]
   }
 }
