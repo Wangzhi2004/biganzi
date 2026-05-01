@@ -10,10 +10,13 @@ RUN npm ci
 # 构建阶段
 FROM base AS builder
 WORKDIR /app
-ENV NODE_OPTIONS="--max-old-space-size=3072"
+# 2GB服务器，Node.js限制1.2GB，留给系统和Docker一些余量
+ENV NODE_OPTIONS="--max-old-space-size=1228"
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
+# 使用SWC编译器减少内存占用
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 # 生产阶段
