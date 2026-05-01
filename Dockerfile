@@ -12,8 +12,7 @@ FROM base AS builder
 WORKDIR /app
 
 # 2GB服务器优化：Node.js限制768MB，确保不OOM
-# 同时设置GC策略，更频繁地回收内存
-ENV NODE_OPTIONS="--max-old-space-size=768 --optimize-for-size"
+ENV NODE_OPTIONS="--max-old-space-size=768"
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=deps /app/node_modules ./node_modules
