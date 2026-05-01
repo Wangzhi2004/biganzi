@@ -6,6 +6,8 @@ import {
   buildWriteChapterPrompt,
   buildMultiDraftJudgePrompt,
   buildExtractStatePrompt,
+  buildStyleDriftCheckPrompt,
+  buildStyleAlignPrompt,
 } from "@/lib/ai/prompts";
 import { contextBuilder } from "./context-builder";
 import { refinePasses } from "./refine-passes";
@@ -15,6 +17,7 @@ import { memoryService } from "@/lib/services/memory.service";
 import { auditService } from "@/lib/services/audit.service";
 import { projectService } from "@/lib/services/project.service";
 import { generationService } from "@/lib/services/generation.service";
+import { vectorMemoryService } from "@/lib/services/vector-memory.service";
 import { prisma } from "@/lib/prisma";
 import type {
   ChapterGenerationInput,
@@ -64,6 +67,7 @@ const MULTI_DRAFT_FUNCTIONS: ChapterFunction[] = [
 ];
 
 const MAX_RETRIES = 3;
+const STYLE_DRIFT_THRESHOLD = 60;
 
 export const pipeline = {
   async generateNextChapter(
@@ -90,6 +94,39 @@ export const pipeline = {
         jobId: options?.jobId ?? jobId,
         projectId: options?.projectId ?? projectId,
       };
+
+      // === VECTOR MEMORY: Semantic recall for relevant context ===
+      let semanticContext: string[] = [];
+      try {
+        semanticContext = await vectorMemoryService.recallRelevantContext(
+          projectId,
+          context.volumeGoal || "",
+          []
+        );
+        if (semanticContext.length > 0) {
+          console.log(`[Pipeline] Vector recall: ${semanticContext.length} relevant memories`);
+        }
+      } catch (e) {
+        console.log("[Pipeline] Vector recall skipped:", (e as Error).message);
+      }
+
+      // === META-LEARNING: Select optimal strategy ===
+      let strategyRecommendation: any = null;
+      try {
+        const { MetaLearner } = await import("./meta-learner");
+        const metaLearner = new MetaLearner();
+        const strategy = await metaLearner.selectStrategy({
+          genre: context.bookDna.genre,
+          chapterFunction: "main_plot",
+          tokenCount: 0,
+        });
+        if (strategy) {
+          strategyRecommendation = strategy;
+          console.log(`[Pipeline] Meta-learning strategy: ${strategy.name}`);
+        }
+      } catch (e) {
+        console.log("[Pipeline] Meta-learning skipped:", (e as Error).message);
+      }
 
       // === PLANNING PHASE ===
 
@@ -143,8 +180,9 @@ export const pipeline = {
               sceneCards,
               activeCharacters: context.activeCharacters,
               styleFingerprint: context.styleFingerprint,
-              recentChapters: context.lastChapters,
+              recentChapters: context.recentChapters,
               worldRules: context.worldRules,
+              semanticContext,
             }),
             { temperature: temp },
             {
@@ -185,14 +223,59 @@ export const pipeline = {
             sceneCards,
             activeCharacters: context.activeCharacters,
             styleFingerprint: context.styleFingerprint,
-            recentChapters: context.lastChapters,
+            recentChapters: context.recentChapters,
             worldRules: context.worldRules,
+            semanticContext,
           }),
           undefined,
           { ...logContext, stepName: AI_STEPS.CHAPTER_BODY, stepOrder: 4 }
         );
         totalTokens += usage.totalTokens;
         chapterText = content;
+      }
+
+      // === STYLE DRIFT CHECK & ALIGN ===
+      if (context.styleFingerprint) {
+        try {
+          const { data: driftResult, meta: driftMeta } = await jsonCompletion(
+            buildStyleDriftCheckPrompt({
+              text: chapterText.slice(0, 3000),
+              styleFingerprint: context.styleFingerprint,
+            }),
+            undefined,
+            {
+              ...logContext,
+              stepName: AI_STEPS.STYLE_DRIFT_CHECK,
+              stepOrder: 8,
+            }
+          );
+          totalTokens += driftMeta.usage.totalTokens;
+
+          const driftScore = driftResult.driftScore || 0;
+          console.log(`[Pipeline] Style drift score: ${driftScore}`);
+
+          if (driftScore > STYLE_DRIFT_THRESHOLD) {
+            console.log(`[Pipeline] Style drift detected (${driftScore}), aligning...`);
+            const { content: alignedText, meta: alignMeta } = await chatCompletion(
+              buildStyleAlignPrompt({
+                text: chapterText,
+                styleFingerprint: context.styleFingerprint,
+                direction: "全面对齐",
+              }),
+              undefined,
+              {
+                ...logContext,
+                stepName: AI_STEPS.STYLE_ALIGN,
+                stepOrder: 9,
+              }
+            );
+            totalTokens += alignMeta.usage.totalTokens;
+            chapterText = alignedText;
+            console.log("[Pipeline] Style alignment completed");
+          }
+        } catch (e) {
+          console.log("[Pipeline] Style drift check skipped:", (e as Error).message);
+        }
       }
 
       // === REFINEMENT + AUDIT LOOP ===
@@ -213,7 +296,7 @@ export const pipeline = {
             activeForeshadows: context.activeForeshadows,
             worldRules: context.worldRules,
             styleFingerprint: context.styleFingerprint,
-            recentChapters: context.lastChapters,
+            recentChapters: context.recentChapters,
             pacingState: context.pacingState,
           },
           logContext
@@ -253,6 +336,25 @@ export const pipeline = {
       );
       totalTokens += stateMeta.usage.totalTokens;
 
+      // === VECTOR MEMORY: Store embeddings ===
+      try {
+        await vectorMemoryService.storeChapterEmbeddings(
+          projectId,
+          "temp",
+          stateDiff.chapterSummary,
+          sceneCards.map((s) => ({
+            sceneNumber: s.sceneNumber,
+            content: `${s.location}: ${s.conflict} → ${s.infoChange}`,
+          })),
+          (stateDiff.characterChanges || []).map((c: any) => ({
+            characterName: c.characterName,
+            change: `${c.field}: ${c.oldValue} → ${c.newValue}`,
+          }))
+        );
+      } catch (e) {
+        console.log("[Pipeline] Vector storage skipped:", (e as Error).message);
+      }
+
       // === SAVE ===
 
       const chapterTitle = `第${nextChapterNumber}章 ${
@@ -270,6 +372,25 @@ export const pipeline = {
         goal: chapterGoal,
         qualityScore: auditResult.finalScore * 10,
       });
+
+      // Update vector memory with actual chapterId
+      try {
+        await vectorMemoryService.storeChapterEmbeddings(
+          projectId,
+          chapter.id,
+          stateDiff.chapterSummary,
+          sceneCards.map((s) => ({
+            sceneNumber: s.sceneNumber,
+            content: `${s.location}: ${s.conflict} → ${s.infoChange}`,
+          })),
+          (stateDiff.characterChanges || []).map((c: any) => ({
+            characterName: c.characterName,
+            change: `${c.field}: ${c.oldValue} → ${c.newValue}`,
+          }))
+        );
+      } catch (e) {
+        console.log("[Pipeline] Vector storage with chapterId skipped:", (e as Error).message);
+      }
 
       await prisma.aICallLog.updateMany({
         where: { jobId: logContext.jobId },
@@ -315,27 +436,26 @@ export const pipeline = {
       await auditService.saveAuditReport(chapter.id, legacyAuditReport);
       await memoryService.saveStateDiff(chapter.id, stateDiff);
 
-      // Store embeddings for vector memory (non-blocking)
+      // === SELF-EVOLUTION: Record execution for prompt evolution ===
       try {
-        const { vectorMemoryService } = await import("@/lib/services/vector-memory.service");
-        await vectorMemoryService.storeChapterEmbeddings(
-          projectId,
-          chapter.id,
-          stateDiff.chapterSummary,
-          sceneCards.map((s) => ({
-            sceneNumber: s.sceneNumber,
-            content: `${s.location}: ${s.conflict} → ${s.infoChange}`,
-          })),
-          (stateDiff.characterChanges || []).map((c: any) => ({
-            characterName: c.characterName,
-            change: `${c.field}: ${c.oldValue} → ${c.newValue}`,
-          }))
-        );
+        const { selfEvolution } = await import("./self-evolution");
+        const promptVersion = await selfEvolution.getBestPromptVersion("chapter_generation", "writer");
+        if (promptVersion) {
+          await selfEvolution.recordExecution(promptVersion.id, {
+            input: { chapterFunction, chapterGoal: chapterGoal.slice(0, 200) },
+            output: { chapterId: chapter.id, qualityScore: auditResult.finalScore * 10 },
+            score: auditResult.finalScore,
+            tokensUsed: totalTokens,
+            durationMs: Date.now() - startTime,
+            success: auditResult.overallStatus !== "red",
+            errorType: auditResult.overallStatus === "red" ? "quality_check_failed" : undefined,
+          });
+        }
       } catch (e) {
-        console.log("[VectorMemory] Embedding storage skipped:", (e as Error).message);
+        console.log("[Pipeline] Self-evolution recording skipped:", (e as Error).message);
       }
 
-      // Record for self-evolution system (non-blocking)
+      // === META-LEARNING: Record episode ===
       try {
         const { MetaLearner } = await import("./meta-learner");
         const metaLearner = new MetaLearner();
@@ -343,14 +463,21 @@ export const pipeline = {
           projectId,
           chapterId: chapter.id,
           taskType: "chapter_generation",
-          input: { chapterFunction, chapterGoal: chapterGoal.slice(0, 200) },
+          input: { chapterFunction, chapterGoal: chapterGoal.slice(0, 200), strategy: strategyRecommendation?.name },
           expectedOutput: { qualityScore: 80 },
-          actualOutput: { qualityScore: auditResult.finalScore * 10 },
+          actualOutput: { qualityScore: auditResult.finalScore * 10, driftScore: 0 },
           score: auditResult.finalScore,
           feedback: auditResult.overallStatus,
         });
       } catch (e) {
-        console.log("[Evolution] Episode recording skipped:", (e as Error).message);
+        console.log("[Pipeline] Meta-learning recording skipped:", (e as Error).message);
+      }
+
+      // === AUTO FORESHADOW DETECTION ===
+      try {
+        await detectAndCreateForeshadows(projectId, chapter.id, chapterText, nextChapterNumber);
+      } catch (e) {
+        console.log("[Pipeline] Foreshadow detection skipped:", (e as Error).message);
       }
 
       for (const scene of sceneCards) {
@@ -418,5 +545,70 @@ export const pipeline = {
       chapterId,
       stateDiff as unknown as StateDiffResult
     );
+
+    // Trigger evolution cycle on confirm (non-blocking)
+    try {
+      const { SelfEvolutionEngine } = await import("./self-evolution-engine");
+      const { SelfOrganizingSwarm } = await import("./self-organization");
+      const { AdaptivePipeline } = await import("./adaptive-pipeline");
+      const { MetaLearner } = await import("./meta-learner");
+
+      const swarm = new SelfOrganizingSwarm();
+      const adaptivePipeline = new AdaptivePipeline(swarm);
+      const metaLearner = new MetaLearner();
+      const engine = new SelfEvolutionEngine(swarm, adaptivePipeline, metaLearner);
+
+      await engine.runEvolutionCycle(projectId);
+      console.log("[Pipeline] Evolution cycle triggered on confirm");
+    } catch (e) {
+      console.log("[Pipeline] Evolution cycle skipped:", (e as Error).message);
+    }
   },
 };
+
+// === AI FORESHADOW DETECTION ===
+async function detectAndCreateForeshadows(
+  projectId: string,
+  chapterId: string,
+  chapterText: string,
+  chapterNumber: number
+): Promise<void> {
+  const { data } = await jsonCompletion([
+    {
+      role: "system",
+      content: `你是一个专业的伏笔识别专家。你从小说章节中识别潜在的伏笔线索。
+      伏笔定义：当前章节中提到的、可能在后续章节产生重要影响的线索、暗示、异常或未完成的事件。
+      只识别真正有伏笔潜力的内容，不要过度解读。
+      输出格式：{"foreshadows": [{"clueText": "伏笔文本", "surfaceMeaning": "表面意思", "trueMeaning": "潜在含义", "relatedCharacters": ["角色名"], "expectedPayoffStart": 章节数, "expectedPayoffEnd": 章节数, "heatScore": 0-1, "urgencyScore": 0-1}]}`
+    },
+    {
+      role: "user",
+      content: `请从以下第${chapterNumber}章内容中识别潜在的伏笔线索：\n\n${chapterText.slice(0, 5000)}`
+    }
+  ]);
+
+  if (!data.foreshadows || data.foreshadows.length === 0) return;
+
+  for (const fw of data.foreshadows) {
+    try {
+      await prisma.foreshadow.create({
+        data: {
+          projectId,
+          clueText: fw.clueText,
+          surfaceMeaning: fw.surfaceMeaning,
+          trueMeaning: fw.trueMeaning,
+          relatedCharacters: fw.relatedCharacters || [],
+          plantedChapter: chapterNumber,
+          expectedPayoffStart: fw.expectedPayoffStart || chapterNumber + 3,
+          expectedPayoffEnd: fw.expectedPayoffEnd || chapterNumber + 10,
+          heatScore: fw.heatScore || 0.5,
+          urgencyScore: fw.urgencyScore || 0.3,
+          status: "planted",
+        },
+      });
+      console.log(`[Pipeline] Auto-created foreshadow: ${fw.clueText.slice(0, 50)}...`);
+    } catch (e) {
+      console.log("[Pipeline] Foreshadow creation failed:", (e as Error).message);
+    }
+  }
+}

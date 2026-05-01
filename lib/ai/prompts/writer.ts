@@ -8,6 +8,7 @@ export function buildWriteChapterPrompt(context: {
   styleFingerprint: any;
   recentChapters: any[];
   worldRules: any[];
+  semanticContext?: string[];
 }): Message[] {
   const styleRequirements = `
 【风格要求】
@@ -79,6 +80,11 @@ ${context.worldRules.map((r) => `- ${r.category}：${r.content}`).join("\n")}
 
 【前文参考】
 ${context.recentChapters.map((ch) => `第${ch.chapterNumber}章「${ch.title}」摘要：${ch.summary}`).join("\n")}
+
+${context.semanticContext && context.semanticContext.length > 0 ? `
+【相关记忆（向量检索）】
+${context.semanticContext.map((ctx, i) => `${i + 1}. ${ctx}`).join("\n")}
+` : ""}
 
 ${styleRequirements}
 

@@ -50,7 +50,34 @@ export const projectService = {
       if (!project) {
         throw new Error("项目不存在");
       }
-      return project;
+
+      // Fetch self-evolution metrics
+      const [
+        latestCycle,
+        promptVersions,
+        learningEpisodes,
+      ] = await Promise.all([
+        prisma.evolutionCycle.findFirst({
+          where: { projectId: id },
+          orderBy: { startedAt: "desc" },
+        }).catch(() => null),
+        prisma.promptVersion.count({ where: { taskType: "chapter_generation" } }).catch(() => 0),
+        prisma.learningEpisode.count({ where: { projectId: id } }).catch(() => 0),
+      ]);
+
+      return {
+        ...project,
+        evolutionMetrics: {
+          latestCycle: latestCycle ? {
+            cycleNumber: latestCycle.cycleNumber,
+            status: latestCycle.status,
+            startedAt: latestCycle.startedAt,
+            learningsCount: Array.isArray(latestCycle.learnings) ? latestCycle.learnings.length : 0,
+          } : null,
+          promptVersions,
+          learningEpisodes,
+        },
+      };
     } catch (error) {
       throw new Error(`获取项目失败: ${(error as Error).message}`);
     }

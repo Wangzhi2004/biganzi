@@ -36,6 +36,8 @@ import {
   ChevronDown,
   ChevronRight,
   Plus,
+  Search,
+  BrainCircuit,
 } from "lucide-react";
 
 interface DnaData {
@@ -313,6 +315,11 @@ export default function BiblePage() {
   const [styleEdit, setStyleEdit] = useState<StyleData | null>(null);
   const [styleEditing, setStyleEditing] = useState(false);
 
+  // Vector search states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+
   // CRUD dialog states
   const [addDialogOpen, setAddDialogOpen] = useState<string | null>(null);
   const [addLoading, setAddLoading] = useState(false);
@@ -494,6 +501,18 @@ export default function BiblePage() {
     }
   };
 
+  const handleVectorSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setSearchLoading(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/search?q=${encodeURIComponent(searchQuery)}&limit=10`);
+      if (res.ok) {
+        const data = await res.json();
+        setSearchResults(data.results || []);
+      }
+    } catch {} finally { setSearchLoading(false); }
+  };
+
   const handleDeleteEntity = async (type: string, id: string) => {
     try {
       const r = await fetch(`/api/projects/${projectId}/${type}/${id}`, { method: "DELETE" });
@@ -622,6 +641,10 @@ export default function BiblePage() {
               <TabsTrigger value="style" className="gap-1.5 text-xs">
                 <Palette className="h-3.5 w-3.5" />
                 风格
+              </TabsTrigger>
+              <TabsTrigger value="search" className="gap-1.5 text-xs">
+                <BrainCircuit className="h-3.5 w-3.5" />
+                语义搜索
               </TabsTrigger>
             </TabsList>
           </ScrollArea>
@@ -1236,6 +1259,69 @@ export default function BiblePage() {
               </div>
             ) : (
               <p className="text-muted-foreground">尚未创建风格指纹</p>
+            )}
+          </TabsContent>
+
+          <TabsContent value="search">
+            <div className="mb-6">
+              <h2 className="text-xl font-bold text-foreground">语义搜索</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                基于向量相似度检索相关内容
+              </p>
+            </div>
+            <div className="flex gap-2 mb-6">
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="输入搜索内容，如：主角的突破场景..."
+                className="flex-1 bg-zinc-900 border-zinc-800 text-foreground"
+                onKeyDown={(e) => e.key === "Enter" && handleVectorSearch()}
+              />
+              <Button onClick={handleVectorSearch} disabled={searchLoading}>
+                {searchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                搜索
+              </Button>
+            </div>
+
+            {searchResults.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">找到 {searchResults.length} 条相关结果</p>
+                {searchResults.map((result, i) => (
+                  <Card key={i} className="border-zinc-800 bg-card">
+                    <CardContent className="py-3 px-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <Badge variant="outline" className="border-zinc-700 bg-zinc-800 text-zinc-400 text-xs">
+                          {result.contentType}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground font-mono">
+                          相似度: {(result.similarity * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      <p className="text-sm text-foreground leading-relaxed">{result.content}</p>
+                      {result.metadata && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {JSON.stringify(result.metadata).slice(0, 200)}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {searchResults.length === 0 && !searchLoading && searchQuery && (
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <Search className="h-12 w-12 text-zinc-600" />
+                <p className="text-muted-foreground">未找到相关结果</p>
+              </div>
+            )}
+
+            {!searchQuery && (
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <BrainCircuit className="h-12 w-12 text-zinc-600" />
+                <p className="text-muted-foreground">输入关键词开始语义搜索</p>
+                <p className="text-xs text-muted-foreground">支持自然语言描述，如"主角的第一次战斗"</p>
+              </div>
             )}
           </TabsContent>
         </Tabs>

@@ -266,6 +266,37 @@ export default function EditorPage() {
             )}
             {styleDrift ? `偏移 ${styleDrift.driftScore}` : "风格"}
           </button>
+          {styleDrift && styleDrift.driftScore > 0 && (
+            <div style={{
+              position: "absolute", top: "52px", right: "16px",
+              background: "var(--surface)", border: "1px solid var(--border-faint)",
+              borderRadius: "var(--radius)", padding: "var(--space-4)",
+              boxShadow: "var(--shadow-sm)", zIndex: 100, minWidth: "240px",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-3)" }}>
+                <span className="type-label">风格漂移分析</span>
+                <span className="type-mono" style={{
+                  color: styleDrift.driftScore > 30 ? "var(--rose)" : styleDrift.driftScore > 15 ? "var(--ochre)" : "var(--forest)",
+                  fontWeight: 700,
+                }}>{styleDrift.driftScore}/100</span>
+              </div>
+              <div style={{ height: "4px", background: "var(--cream)", borderRadius: "2px", overflow: "hidden", marginBottom: "var(--space-3)" }}>
+                <div style={{
+                  height: "100%", width: `${styleDrift.driftScore}%`,
+                  background: styleDrift.driftScore > 30 ? "var(--rose)" : styleDrift.driftScore > 15 ? "var(--ochre)" : "var(--forest)",
+                  borderRadius: "2px", transition: "width 0.3s ease",
+                }} />
+              </div>
+              {styleDrift.driftPoints && styleDrift.driftPoints.length > 0 && (
+                <div>
+                  <p className="type-caption" style={{ marginBottom: "var(--space-2)" }}>偏离点：</p>
+                  {styleDrift.driftPoints.map((point, i) => (
+                    <p key={i} className="type-caption" style={{ padding: "2px 0", color: "var(--text-secondary)" }}>• {point}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </header>
 

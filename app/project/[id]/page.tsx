@@ -30,6 +30,9 @@ import {
   FileText,
   BookMarked,
   Cpu,
+  Clock,
+  Brain,
+  Layers,
 } from "lucide-react";
 import {
   PROJECT_STATUS_LABELS,
@@ -220,6 +223,12 @@ export default function ProjectDashboard() {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button className="btn-outline" onClick={() => router.push(`/project/${projectId}/bible`)}>
             <BookMarked width={13} height={13} /> 作品设定
+          </button>
+          <button className="btn-outline" onClick={() => router.push(`/project/${projectId}/history`)}>
+            <Clock width={13} height={13} /> 版本历史
+          </button>
+          <button className="btn-outline" onClick={() => router.push(`/project/${projectId}/evolution`)}>
+            <Cpu width={13} height={13} /> 自进化
           </button>
           <button className="btn-outline">
             <Shield width={13} height={13} /> 检查风险
@@ -451,6 +460,64 @@ export default function ProjectDashboard() {
           </div>
         )}
       </section>
+
+      {/* ── 自进化指标 ── */}
+      {currentProject?.evolutionMetrics && (
+        <section style={{ marginBottom: "var(--space-12)" }}>
+          <p className="type-label" style={{ marginBottom: "var(--space-5)" }}>自进化状态</p>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: "var(--space-4)",
+          }}>
+            <div style={{ background: "var(--surface)", border: "1px solid var(--border-faint)", borderRadius: "var(--radius)", padding: "var(--space-5)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "var(--space-2)" }}>
+                <Brain width={14} height={14} style={{ color: "var(--accent)" }} />
+                <span className="type-caption">进化周期</span>
+              </div>
+              <p className="type-display" style={{ fontSize: "1.25rem" }}>
+                {currentProject.evolutionMetrics.latestCycle
+                  ? `#${currentProject.evolutionMetrics.latestCycle.cycleNumber}`
+                  : "未启动"}
+              </p>
+              {currentProject.evolutionMetrics.latestCycle && (
+                <p className="type-caption" style={{ marginTop: "var(--space-1)" }}>
+                  {currentProject.evolutionMetrics.latestCycle.status === "completed" ? "已完成" : "进行中"}
+                  · {currentProject.evolutionMetrics.latestCycle.learningsCount} 项学习
+                </p>
+              )}
+            </div>
+            <div style={{ background: "var(--surface)", border: "1px solid var(--border-faint)", borderRadius: "var(--radius)", padding: "var(--space-5)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "var(--space-2)" }}>
+                <Zap width={14} height={14} style={{ color: "var(--accent)" }} />
+                <span className="type-caption">提示词版本</span>
+              </div>
+              <p className="type-display" style={{ fontSize: "1.25rem" }}>
+                {currentProject.evolutionMetrics.promptVersions}
+              </p>
+              <p className="type-caption" style={{ marginTop: "var(--space-1)" }}>自动进化中</p>
+            </div>
+            <div style={{ background: "var(--surface)", border: "1px solid var(--border-faint)", borderRadius: "var(--radius)", padding: "var(--space-5)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "var(--space-2)" }}>
+                <Layers width={14} height={14} style={{ color: "var(--accent)" }} />
+                <span className="type-caption">学习样本</span>
+              </div>
+              <p className="type-display" style={{ fontSize: "1.25rem" }}>
+                {currentProject.evolutionMetrics.learningEpisodes}
+              </p>
+              <p className="type-caption" style={{ marginTop: "var(--space-1)" }}>持续积累</p>
+            </div>
+            <div style={{ background: "var(--surface)", border: "1px solid var(--border-faint)", borderRadius: "var(--radius)", padding: "var(--space-5)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "var(--space-2)" }}>
+                <TrendingUp width={14} height={14} style={{ color: "var(--accent)" }} />
+                <span className="type-caption">向量记忆</span>
+              </div>
+              <p className="type-display" style={{ fontSize: "1.25rem" }}>活跃</p>
+              <p className="type-caption" style={{ marginTop: "var(--space-1)" }}>语义检索启用</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── AI 活动记录 ── */}
       {aiLogs.length > 0 && (
