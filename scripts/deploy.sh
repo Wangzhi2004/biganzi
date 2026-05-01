@@ -1,43 +1,31 @@
 #!/bin/bash
-# 笔杆子部署脚本
-# 用法: bash deploy.sh
-# 在 ECS 上执行，路径: /opt/biganzi
+# 笔杆子一键部署脚本
+# 用法: cd /opt/biganzi && bash scripts/deploy.sh
 
 set -e
-
-echo "=== 笔杆子部署 ==="
 cd /opt/biganzi
 
-# 1. 清除本地修改，拉取最新代码
-echo "[1/5] 拉取最新代码..."
-git checkout -- .
-git pull origin main
-
-# 2. 重建容器
-echo "[2/5] 重建容器..."
+echo "=== 停止服务 ==="
+systemctl stop nginx 2>/dev/null || true
 docker compose down
+
+echo "=== 拉取代码 ==="
+git reset --hard origin/main
+
+echo "=== 构建启动 ==="
 docker compose up -d --build
 
-# 3. 等待启动
-echo "[3/5] 等待服务启动..."
-sleep 20
+echo "=== 等待启动 ==="
+sleep 25
 
-# 4. 运行数据库迁移
-echo "[4/5] 运行数据库迁移..."
-docker compose exec app node_modules/.bin/prisma migrate deploy 2>/dev/null || echo "Migration 已是最新"
+echo "=== 数据库迁移 ==="
+docker compose exec app npx prisma migrate deploy 2>/dev/null || echo "迁移已是最新"
 
-# 5. 重启 Nginx（如果已安装）
-echo "[5/5] 重启 Nginx..."
-if systemctl is-active --quiet nginx 2>/dev/null; then
-    systemctl restart nginx
-    echo "Nginx 已重启"
-else
-    echo "Nginx 未安装，跳过"
-fi
+echo "=== 启动 Nginx ==="
+systemctl start nginx 2>/dev/null || true
 
-# 检查状态
+echo "=== 验证 ==="
+curl -s http://127.0.0.1:3000 | head -3
 echo ""
-echo "=== 部署完成 ==="
+echo "=== 完成 ==="
 docker compose ps
-echo ""
-echo "访问地址: http://$(curl -s --connect-timeout 3 ifconfig.me 2>/dev/null || echo '你的公网IP')"
