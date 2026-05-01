@@ -30,7 +30,6 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-USER nextjs
 EXPOSE 80
 ENV PORT=80
 CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
