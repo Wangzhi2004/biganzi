@@ -9,6 +9,13 @@ echo "=== 停止服务 ==="
 systemctl stop nginx 2>/dev/null || true
 docker compose down
 
+echo "=== 清理缓存 ==="
+# 清理Docker构建缓存，解决构建卡住问题
+docker system prune -a -f
+docker builder prune -f
+# 清理Next.js旧构建缓存
+rm -rf .next
+
 echo "=== 拉取代码 ==="
 git reset --hard origin/main
 
