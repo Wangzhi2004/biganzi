@@ -10,7 +10,7 @@ RUN npm ci
 # 构建阶段
 FROM base AS builder
 WORKDIR /app
-ENV NODE_OPTIONS="--max-old-space-size=1536"
+ENV NODE_OPTIONS="--max-old-space-size=3072"
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
