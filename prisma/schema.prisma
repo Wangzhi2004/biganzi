@@ -1,0 +1,740 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  projects Project[]
+}
+
+model Project {
+  id            String        @id @default(uuid())
+  userId        String
+  name          String
+  genre         String
+  subGenre      String
+  description   String?
+  status        ProjectStatus @default(DRAFT)
+  totalWords    Int           @default(0)
+  currentChapter Int          @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  bookDna        BookDNA?
+  volumes        Volume[]
+  chapters       Chapter[]
+  characters     Character[]
+  relationships  Relationship[]
+  worldRules     WorldRule[]
+  locations      Location[]
+  items          Item[]
+  abilities      Ability[]
+  organizations  Organization[]
+  events         Event[]
+  foreshadows    Foreshadow[]
+  readerPromises ReaderPromise[]
+  styleFingerprint StyleFingerprint?
+  generationJobs   GenerationJob[]
+  memoryEmbeddings  MemoryEmbedding[]
+  versionLogs      VersionLog[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model BookDNA {
+  id                String @id @default(uuid())
+  projectId         String @unique
+  genre             String
+  subGenre          String
+  targetPlatform    String
+  targetWords       Int
+  updateRhythm      String
+  coreHook          String
+  protagonistTheme  String
+  finalEmotion      String
+  mainlineQuestion  String
+  worldKeywords     String
+  pleasureMechanism String
+  emotionMechanism  String
+  forbiddenRules    Json
+  styleDirection    String
+  targetReaderProfile String
+  readerPromises    Json
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+}
+
+model Volume {
+  id           String   @id @default(uuid())
+  projectId    String
+  volumeNumber Int
+  title        String
+  summary      String?
+  goal         String?
+  status       String   @default("draft")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project  Project   @relation(fields: [projectId], references: [id])
+  arcs     Arc[]
+  chapters Chapter[]
+
+  @@index([projectId])
+  @@index([volumeNumber])
+  @@unique([projectId, volumeNumber])
+}
+
+model Arc {
+  id        String   @id @default(uuid())
+  volumeId  String
+  arcNumber Int
+  title     String
+  summary   String?
+  goal      String?
+  status    String   @default("draft")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  volume   Volume    @relation(fields: [volumeId], references: [id])
+  chapters Chapter[]
+
+  @@index([volumeId])
+  @@index([arcNumber])
+  @@unique([volumeId, arcNumber])
+}
+
+model Chapter {
+  id             String        @id @default(uuid())
+  projectId      String
+  volumeId       String?
+  arcId          String?
+  chapterNumber  Int
+  title          String
+  content        String?
+  summary        String?
+  chapterFunction ChapterFunction
+  sceneCards     Json?
+  goal           String?
+  qualityScore   Float?
+  auditStatus    AuditStatus   @default(PENDING)
+  isConfirmed    Boolean       @default(false)
+  version        Int           @default(1)
+  wordCount      Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  project   Project   @relation(fields: [projectId], references: [id])
+  volume    Volume?   @relation(fields: [volumeId], references: [id])
+  arc       Arc?      @relation(fields: [arcId], references: [id])
+
+  scenes       Scene[]
+  auditReport  AuditReport?
+  stateDiff    StateDiff?
+  consistencyReport ConsistencyReport?
+  generationJobs GenerationJob[]
+
+  @@index([projectId])
+  @@index([chapterNumber])
+  @@index([auditStatus])
+  @@unique([projectId, chapterNumber])
+}
+
+enum ChapterFunction {
+  MAIN_PLOT
+  CHARACTER_TURN
+  FORESHADOW_PLANT
+  FORESHADOW_PAYOFF
+  PLEASURE_BURST
+  CRISIS_UPGRADE
+  WORLD_EXPANSION
+  RELATIONSHIP_ADVANCE
+  VILLAIN_PRESSURE
+  EMOTIONAL_SETTLE
+  PHASE_CLOSE
+  NEW_ARC_OPEN
+}
+
+enum AuditStatus {
+  PENDING
+  GREEN
+  YELLOW
+  RED
+}
+
+model Scene {
+  id          String   @id @default(uuid())
+  chapterId   String
+  sceneNumber Int
+  location    String
+  characters  Json
+  conflict    String?
+  infoChange  String?
+  emotionGoal String?
+  content     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  chapter Chapter @relation(fields: [chapterId], references: [id])
+
+  @@index([chapterId])
+  @@index([sceneNumber])
+  @@unique([chapterId, sceneNumber])
+}
+
+model Character {
+  id              String   @id @default(uuid())
+  projectId       String
+  name            String
+  aliases         Json?
+  roleType        String
+  desire          String?
+  fear            String?
+  wound           String?
+  secret          String?
+  moralBoundary   String?
+  temptation      String?
+  infoBoundary    String?
+  decisionPreference String?
+  growthStage     String?
+  speechPattern   String?
+  currentGoal     String?
+  currentLocation String?
+  currentStatus   String?
+  powerLevel      String?
+  firstSeenChapter Int?
+  lastSeenChapter  Int?
+  sourceChapters  Json?
+  status          CanonStatus @default(DRAFT)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project          Project @relation(fields: [projectId], references: [id])
+  relationshipsA   Relationship[] @relation("CharacterA")
+  relationshipsB   Relationship[] @relation("CharacterB")
+  abilities        Ability[]
+
+  @@index([projectId])
+  @@index([name])
+  @@index([roleType])
+}
+
+model Relationship {
+  id           String   @id @default(uuid())
+  projectId    String
+  characterAId String
+  characterBId String
+  relationType String
+  description  String?
+  status       String   @default("active")
+  startChapter Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project    Project   @relation(fields: [projectId], references: [id])
+  characterA Character @relation("CharacterA", fields: [characterAId], references: [id])
+  characterB Character @relation("CharacterB", fields: [characterBId], references: [id])
+
+  @@index([projectId])
+  @@index([characterAId])
+  @@index([characterBId])
+  @@unique([characterAId, characterBId])
+}
+
+model WorldRule {
+  id           String     @id @default(uuid())
+  projectId    String
+  category     String
+  content      String
+  sourceChapter Int?
+  status       CanonStatus @default(DRAFT)
+  version      Int        @default(1)
+  checkType    String?    // "auto" | "manual"
+  checkPrompt  String?    // auto-check prompt fragment
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([category])
+  @@index([status])
+}
+
+model Location {
+  id              String   @id @default(uuid())
+  projectId       String
+  name            String
+  description     String?
+  firstSeenChapter Int?
+  status          CanonStatus @default(DRAFT)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([name])
+}
+
+model Item {
+  id              String   @id @default(uuid())
+  projectId       String
+  name            String
+  description     String?
+  abilities       String?
+  firstSeenChapter Int?
+  status          CanonStatus @default(DRAFT)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([name])
+}
+
+model Ability {
+  id                 String   @id @default(uuid())
+  projectId          String
+  name               String
+  description        String?
+  limitations        String?
+  ownerCharacterId   String?
+  firstSeenChapter   Int?
+  status             CanonStatus @default(DRAFT)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  project         Project    @relation(fields: [projectId], references: [id])
+  ownerCharacter  Character? @relation(fields: [ownerCharacterId], references: [id])
+
+  @@index([projectId])
+  @@index([ownerCharacterId])
+  @@index([name])
+}
+
+model Organization {
+  id              String   @id @default(uuid())
+  projectId       String
+  name            String
+  description     String?
+  members         Json?
+  firstSeenChapter Int?
+  status          CanonStatus @default(DRAFT)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([name])
+}
+
+model Event {
+  id                 String   @id @default(uuid())
+  projectId          String
+  title              String
+  description        String
+  chapterNumber      Int
+  involvedCharacters Json?
+  consequences       Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([chapterNumber])
+}
+
+model Foreshadow {
+  id                  String           @id @default(uuid())
+  projectId           String
+  plantedChapter      Int
+  clueText            String
+  surfaceMeaning      String
+  trueMeaning         String
+  relatedCharacters   Json?
+  relatedEvents       Json?
+  expectedPayoffStart Int?
+  expectedPayoffEnd   Int?
+  payoffChapter       Int?
+  status              ForeshadowStatus @default(INACTIVE)
+  heatScore           Float            @default(0)
+  urgencyScore        Float            @default(0)
+  remindedAt          DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([status])
+  @@index([heatScore])
+  @@index([urgencyScore])
+}
+
+enum ForeshadowStatus {
+  INACTIVE
+  PLANTED
+  REMINDED
+  DEEPENED
+  PARTIAL_PAYOFF
+  FULL_PAYOFF
+  DEPRECATED
+  CONFLICT
+}
+
+model ReaderPromise {
+  id             String           @id @default(uuid())
+  projectId      String
+  promiseText    String
+  plantedChapter Int
+  resolvedChapter Int?
+  status         PromiseStatus    @default(ACTIVE)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([status])
+}
+
+enum PromiseStatus {
+  ACTIVE
+  RESOLVED
+  BROKEN
+}
+
+model StyleFingerprint {
+  id                String   @id @default(uuid())
+  projectId         String   @unique
+  narrativePOV      String
+  narrativeDistance  String
+  avgSentenceLength Float
+  dialogueRatio     Float
+  psychologicalRatio Float
+  actionRatio       Float
+  environmentRatio  Float
+  infoDensity       Float
+  emotionExposure   Float
+  humorLevel        Float
+  rhetoricSystem    Json
+  commonWords       Json
+  bannedWords       Json
+  chapterEndStyle   String
+  battleStyle       String
+  romanceStyle      String
+  mysteryStyle      String
+  presetName        String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+}
+
+model AuditReport {
+  id                   String   @id @default(uuid())
+  chapterId            String   @unique
+  overallStatus        AuditStatus
+  qualityScore         Float
+  mainPlotScore        Float
+  characterChangeScore Float
+  conflictScore        Float
+  hookScore            Float
+  styleConsistencyScore Float
+  settingConsistencyScore Float
+  infoIncrementScore   Float
+  emotionTensionScore  Float
+  freshnessScore       Float
+  readabilityScore     Float
+  risks                Json
+  rewriteActions       Json
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  chapter Chapter @relation(fields: [chapterId], references: [id])
+}
+
+model GenerationJob {
+  id           String                @id @default(uuid())
+  projectId    String
+  chapterId    String?
+  jobType      GenerationJobType
+  status       GenerationJobStatus   @default(PENDING)
+  inputContext  Json?
+  output       Json?
+  model        String?
+  durationMs   Int?
+  tokenCount   Int?
+  cost         Float?
+  errorMessage String?
+  retryCount   Int                   @default(0)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  project Project  @relation(fields: [projectId], references: [id])
+  chapter Chapter? @relation(fields: [chapterId], references: [id])
+  aiCalls AICallLog[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([jobType])
+}
+
+enum GenerationJobType {
+  INITIALIZE
+  NEXT_CHAPTER
+  REWRITE
+  STYLE_REWRITE
+  EXPAND
+  COMPRESS
+}
+
+enum GenerationJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model StateDiff {
+  id                   String   @id @default(uuid())
+  chapterId            String   @unique
+  chapterSummary       String
+  newFacts             Json?
+  characterChanges     Json?
+  relationshipChanges  Json?
+  newWorldRules        Json?
+  newForeshadows       Json?
+  paidOffForeshadows   Json?
+  newReaderPromises    Json?
+  resolvedReaderPromises Json?
+  riskFlags            Json?
+  nextChapterSuggestion Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  chapter Chapter @relation(fields: [chapterId], references: [id])
+}
+
+enum CanonStatus {
+  CONFIRMED
+  DRAFT
+  DEPRECATED
+  CONFLICT
+}
+
+enum AICallStatus {
+  SUCCESS
+  FAILED
+}
+
+model AICallLog {
+  id              String      @id @default(uuid())
+  jobId           String?
+  projectId       String
+  chapterId       String?
+  stepName        String
+  stepOrder       Int         @default(0)
+  taskType        String?     // "planning" | "writing" | "audit" | "extract"
+  model           String
+  messages        String
+  response        String
+  promptTokens    Int         @default(0)
+  completionTokens Int        @default(0)
+  durationMs      Int         @default(0)
+  status          AICallStatus @default(SUCCESS)
+  errorMessage    String?
+  createdAt       DateTime    @default(now())
+
+  job             GenerationJob? @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([jobId])
+  @@index([chapterId])
+  @@index([createdAt])
+}
+
+model MemoryEmbedding {
+  id          String   @id @default(uuid())
+  projectId   String
+  chapterId   String?
+  contentType String   // "chapter_summary" | "scene" | "character_state" | "dialogue"
+  content     String
+  embedding   Unsupported("vector(1536)")?  // pgvector native type
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([contentType])
+  @@index([chapterId])
+}
+
+model ConsistencyReport {
+  id               String   @id @default(uuid())
+  chapterId        String   @unique
+  voiceDriftScore  Float?
+  settingConflicts Json?
+  foreshadowErrors Json?
+  timelineGaps     Json?
+  missingCharacters Json?
+  overallScore     Float?
+  createdAt        DateTime @default(now())
+
+  chapter Chapter @relation(fields: [chapterId], references: [id])
+}
+
+model VersionLog {
+  id          String   @id @default(uuid())
+  projectId   String
+  entityType  String   // "chapter" | "character" | "world_rule" | "foreshadow"
+  entityId    String
+  changeType  String   // "create" | "update" | "delete" | "status_change"
+  oldValue    Json?
+  newValue    Json?
+  description String?
+  createdAt   DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+model PromptVersion {
+  id           String   @id @default(uuid())
+  name         String
+  content      String
+  role         String
+  taskType     String
+  version      Int      @default(1)
+  avgScore     Float    @default(0)
+  successRate  Float    @default(0)
+  avgTokens    Float    @default(0)
+  usageCount   Int      @default(0)
+  mutations    Json?
+  parentId     String?
+  createdAt    DateTime @default(now())
+
+  @@index([taskType])
+  @@index([role])
+  @@index([version])
+}
+
+model ExecutionLog {
+  id              String   @id @default(uuid())
+  promptVersionId String
+  input           String?
+  output          String?
+  score           Float    @default(0)
+  tokensUsed      Int      @default(0)
+  durationMs      Int      @default(0)
+  success         Boolean  @default(true)
+  errorType       String?
+  createdAt       DateTime @default(now())
+
+  @@index([promptVersionId])
+  @@index([createdAt])
+}
+
+model AgentPerformance {
+  id               String   @id @default(uuid())
+  agentId          String   @unique
+  tasksCompleted   Int      @default(0)
+  avgScore         Float    @default(0)
+  errorRate        Float    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([agentId])
+}
+
+model PipelineExecution {
+  id          String   @id @default(uuid())
+  templateId  String
+  projectId   String
+  chapterId   String?
+  status      String
+  results     Json?
+  metrics     Json?
+  duration    Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([templateId])
+  @@index([projectId])
+  @@index([status])
+}
+
+model LearningEpisode {
+  id              String   @id @default(uuid())
+  projectId       String
+  chapterId       String?
+  taskType        String
+  input           Json?
+  expectedOutput  Json?
+  actualOutput    Json?
+  score           Float    @default(0)
+  feedback        String?
+  createdAt       DateTime @default(now())
+
+  @@index([projectId])
+  @@index([taskType])
+  @@index([createdAt])
+}
+
+model LearningRecord {
+  id                String   @id @default(uuid())
+  pattern           String
+  applicability     String
+  confidence        Float    @default(0)
+  sourceExperiments Json?
+  applied           Boolean  @default(false)
+  createdAt         DateTime @default(now())
+
+  @@index([applied])
+  @@index([createdAt])
+}
+
+model EvolutionCycle {
+  id            String    @id @default(uuid())
+  projectId     String
+  cycleNumber   Int
+  observations  Json?
+  hypotheses    Json?
+  experiments   Json?
+  learnings     Json?
+  status        String
+  startedAt     DateTime
+  completedAt   DateTime?
+
+  @@index([projectId])
+  @@index([status])
+  @@index([startedAt])
+}

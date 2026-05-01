@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(npx next *)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s http://localhost:3000/api/projects)",
+      "Bash(curl -s -w \"\\\\n%{http_code}\" http://localhost:3000/api/projects/bfd8f458-cfce-40d2-8139-592bd16003cd)",
+      "Bash(curl -s -w \"\\\\n%{http_code}\" \"http://localhost:3000/api/projects/bfd8f458-cfce-40d2-8139-592bd16003cd/chapters\")",
+      "Bash(curl -s -w \"\\\\n%{http_code}\" \"http://localhost:3000/api/projects/bfd8f458-cfce-40d2-8139-592bd16003cd/foreshadows\")",
+      "Bash(curl -s -w \"\\\\n%{http_code}\" \"http://localhost:3000/api/projects/bfd8f458-cfce-40d2-8139-592bd16003cd/characters\")",
+      "Bash(curl -s -w \"\\\\n%{http_code}\" \"http://localhost:3000/api/projects/bfd8f458-cfce-40d2-8139-592bd16003cd/ai-logs?limit=30\")",
+      "Bash(netstat -ano)",
+      "Bash(npm run *)",
+      "Bash(curl -s \"http://localhost:3000/api/projects/2ccdb15f-c9d1-4f4c-93b3-43dd721c1f3b\")",
+      "Bash(curl -s \"http://localhost:3000/api/projects/2ccdb15f-c9d1-4f4c-93b3-43dd721c1f3b/chapters\")",
+      "Bash(curl -s \"http://localhost:3000\" -o /dev/null -w \"%{http_code}\")",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(curl -s -w '\\\\nHTTP %{http_code} - %{time_total}s\\\\n' http://localhost:3000/api/projects/2ccdb15f-c9d1-4f4c-93b3-43dd721c1f3b)",
+      "Bash(taskkill /PID 41748 /F)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:3000/\")",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/projects/2ccdb15f-c9d1-4f4c-93b3-43dd721c1f3b)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/projects/2ccdb15f-c9d1-4f4c-93b3-43dd721c1f3b/chapters)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/projects/2ccdb15f-c9d1-4f4c-93b3-43dd721c1f3b/foreshadows)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/projects/2ccdb15f-c9d1-4f4c-93b3-43dd721c1f3b/characters)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' 'http://localhost:3000/api/projects/2ccdb15f-c9d1-4f4c-93b3-43dd721c1f3b/ai-logs?limit=30')",
+      "Bash(tasklist)",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(taskkill /F /PID 31512)",
+      "Bash(taskkill //F //PID 31512)",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(node -e \"console.log\\(require\\('react/package.json'\\).version\\); console.log\\(require\\('zustand/package.json'\\).version\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('id:', d.get\\('id'\\)\\); print\\('name:', d.get\\('name'\\)\\); print\\('status:', d.get\\('status'\\)\\)\")",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl -sL https://raw.githubusercontent.com/obra/superpowers/refs/heads/main/.opencode/INSTALL.md)",
+      "Bash(npx prisma *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(start http://localhost:3000)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}
