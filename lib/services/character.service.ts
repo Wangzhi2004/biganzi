@@ -11,6 +11,10 @@ export const characterService = {
     wound?: string;
     secret?: string;
     moralBoundary?: string;
+    temptation?: string;
+    infoBoundary?: string;
+    decisionPreference?: string;
+    growthStage?: string;
     speechPattern?: string;
     currentGoal?: string;
     currentLocation?: string;
@@ -29,6 +33,10 @@ export const characterService = {
           wound: data.wound,
           secret: data.secret,
           moralBoundary: data.moralBoundary,
+          temptation: data.temptation,
+          infoBoundary: data.infoBoundary,
+          decisionPreference: data.decisionPreference,
+          growthStage: data.growthStage,
           speechPattern: data.speechPattern,
           currentGoal: data.currentGoal,
           currentLocation: data.currentLocation,

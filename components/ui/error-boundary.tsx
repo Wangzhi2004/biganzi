@@ -36,22 +36,24 @@ class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="max-w-md w-full mx-4 p-6 bg-white rounded-xl shadow-lg text-center">
-            <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
-              <AlertCircle className="w-8 h-8 text-red-500" />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "var(--bg)" }}>
+          <div style={{ maxWidth: "32rem", width: "100%", margin: "0 1rem", padding: "1.5rem", background: "white", borderRadius: "0.75rem", boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)", textAlign: "center" }}>
+            <div style={{ width: "4rem", height: "4rem", margin: "0 auto 1rem", background: "var(--cream)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <AlertCircle style={{ width: "2rem", height: "2rem", color: "var(--rose)" }} />
             </div>
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 600, color: "var(--text)", marginBottom: "0.5rem" }}>
               系统出现错误
             </h2>
-            <p className="text-gray-600 mb-4">
+            <p style={{ color: "var(--text-muted)", marginBottom: "1rem" }}>
               {this.state.error?.message || "AI 服务暂时不可用，请稍后重试"}
             </p>
             <button
               onClick={this.handleRetry}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 1rem", background: "var(--accent)", color: "white", borderRadius: "0.5rem", cursor: "pointer", border: "none" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--accent-hover)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "var(--accent)"; }}
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw style={{ width: "1rem", height: "1rem" }} />
               刷新重试
             </button>
           </div>
