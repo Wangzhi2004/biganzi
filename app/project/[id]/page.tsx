@@ -737,6 +737,32 @@ export default function ProjectDashboard() {
               </div>
             )}
 
+            {riskReport?.reorderSuggestions?.length > 0 && (
+              <div style={{ marginBottom: "var(--space-6)" }}>
+                <h3 style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+                  <TrendingUp width={14} height={14} style={{ color: "var(--accent)" }} />
+                  <span className="type-label" style={{ fontWeight: 500 }}>重排建议</span>
+                  <span className="badge">{riskReport.reorderSuggestions.length}</span>
+                </h3>
+                <div style={{ background: "var(--accent-subtle)", borderRadius: "var(--radius)", padding: "var(--space-3)" }}>
+                  {riskReport.reorderSuggestions.map((suggestion: any, i: number) => (
+                    <div key={i} style={{ padding: "var(--space-2) 0", borderBottom: i < riskReport.reorderSuggestions.length - 1 ? "1px solid var(--border-faint)" : "none" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "4px" }}>
+                        <span className={`badge ${suggestion.priority === "high" ? "badge-danger" : "badge-warning"}`}>
+                          {suggestion.type}
+                        </span>
+                        {suggestion.priority === "high" && (
+                          <span style={{ fontSize: "10px", color: "var(--rose)" }}>高优先级</span>
+                        )}
+                      </div>
+                      <p className="type-caption" style={{ marginBottom: "4px", color: "var(--text-secondary)" }}>{suggestion.reason}</p>
+                      <p className="type-caption" style={{ color: "var(--accent)" }}>建议: {suggestion.action}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {riskReport?.summary.totalRisks === 0 && (
               <div style={{ textAlign: "center", padding: "var(--space-8)" }}>
                 <CheckCircle2 width={48} height={48} style={{ color: "var(--forest)", marginBottom: "var(--space-4)" }} />

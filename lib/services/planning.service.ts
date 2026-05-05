@@ -11,6 +11,7 @@ export const planningService = {
     lowQualityChapters: any[];
     pacingIssues: any[];
     foreshadowBacklog: any[];
+    reorderSuggestions: any[];
     summary: { totalRisks: number; highCount: number; mediumCount: number };
   }> {
     const [foreshadows, characters, chapters] = await Promise.all([
@@ -38,12 +39,14 @@ export const planningService = {
       }),
       prisma.chapter.findMany({
         where: { projectId },
+        orderBy: { chapterNumber: "asc" },
         select: {
           id: true,
           chapterNumber: true,
           title: true,
           qualityScore: true,
           auditStatus: true,
+          chapterFunction: true,
         },
       }),
     ]);
@@ -71,16 +74,24 @@ export const planningService = {
     );
 
     const pacingIssues = [];
-    const recentChapters = chapters
-      .slice(-10)
-      .sort((a, b) => a.chapterNumber - b.chapterNumber);
+    const reorderSuggestions = [];
+
+    const recentChapters = chapters.slice(-10);
     const avgScore =
-      recentChapters.reduce((sum, c) => sum + (c.qualityScore || 0), 0) /
-      recentChapters.length;
+      recentChapters.length > 0
+        ? recentChapters.reduce((sum, c) => sum + (c.qualityScore || 0), 0) / recentChapters.length
+        : 0;
+
     if (avgScore < 70) {
       pacingIssues.push({
         type: "warning",
         message: `最近10章质量平均分较低 (${avgScore.toFixed(1)})，建议关注`,
+      });
+      reorderSuggestions.push({
+        type: "主线过慢",
+        reason: "最近章节质量偏低，需要增加主线推进",
+        action: "建议将部分章节功能调整为 main_plot 或 crisis_upgrade",
+        priority: "high",
       });
     }
 
@@ -91,6 +102,59 @@ export const planningService = {
       pacingIssues.push({
         type: "warning",
         message: `未回收伏笔过多 (${unresolvedForeshadows.length}个)，建议加快回收节奏`,
+      });
+      reorderSuggestions.push({
+        type: "伏笔积压",
+        reason: `有 ${unresolvedForeshadows.length} 个伏笔未回收`,
+        action: "建议在后续章节中增加 foreshadow_payoff 类型章节",
+        priority: "high",
+      });
+    }
+
+    const tensionMap: Record<string, number> = {
+      main_plot: 6, character_turn: 5, foreshadow_plant: 4,
+      foreshadow_payoff: 7, pleasure_burst: 9, crisis_upgrade: 8,
+      world_expansion: 3, relationship_advance: 5, villain_pressure: 7,
+      emotional_settle: 2, phase_close: 4, new_arc_open: 5,
+    };
+
+    const recentFunctions = recentChapters.map((c) => c.chapterFunction.toLowerCase());
+    const pleasureCount = recentFunctions.filter((f) => f === "pleasure_burst").length;
+    const crisisCount = recentFunctions.filter((f) => f === "crisis_upgrade").length;
+    const emotionalSettleCount = recentFunctions.filter((f) => f === "emotional_settle").length;
+
+    if (pleasureCount > 3) {
+      pacingIssues.push({
+        type: "info",
+        message: `最近10章中爽点章节过多 (${pleasureCount}个)，可能造成审美疲劳`,
+      });
+      reorderSuggestions.push({
+        type: "爽点过密",
+        reason: `连续爽点过多可能降低读者兴奋感`,
+        action: "建议减少 pleasure_burst，增加 emotional_settle 或 world_expansion",
+        priority: "medium",
+      });
+    }
+
+    if (crisisCount > 4 && emotionalSettleCount === 0) {
+      pacingIssues.push({
+        type: "warning",
+        message: "最近章节紧张度过高，缺乏情绪缓冲",
+      });
+      reorderSuggestions.push({
+        type: "压抑过久",
+        reason: "连续紧张章节可能导致读者疲劳",
+        action: "建议插入 emotional_settle 章节缓解紧张氛围",
+        priority: "high",
+      });
+    }
+
+    if (staleCharacters.length > 3) {
+      reorderSuggestions.push({
+        type: "角色失踪",
+        reason: `${staleCharacters.length} 个角色超过10章未出场`,
+        action: `建议安排 ${staleCharacters.slice(0, 3).map((c) => c.name).join("、")} 等角色出场`,
+        priority: "medium",
       });
     }
 
@@ -116,6 +180,7 @@ export const planningService = {
       lowQualityChapters,
       pacingIssues,
       foreshadowBacklog,
+      reorderSuggestions,
       summary: {
         totalRisks,
         highCount: highRiskForeshadows.length + lowQualityChapters.length,
