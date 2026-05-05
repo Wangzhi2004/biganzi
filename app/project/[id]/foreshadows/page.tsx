@@ -22,6 +22,7 @@ import {
   XCircle,
   Layers,
   Sparkles,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -201,6 +202,17 @@ export default function ForeshadowsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    foreshadowId: string;
+    foreshadow: Foreshadow | null;
+    newStatus: string;
+    open: boolean;
+  }>({
+    foreshadowId: "",
+    foreshadow: null,
+    newStatus: "",
+    open: false,
+  });
   const [newForeshadow, setNewForeshadow] = useState({
     plantedChapter: "",
     clueText: "",
@@ -272,10 +284,25 @@ export default function ForeshadowsPage() {
     }
   });
 
+  const needsConfirmation = (status: string) => {
+    return ["PARTIAL_PAYOFF", "FULL_PAYOFF", "DEPRECATED"].includes(status);
+  };
+
   const handleStatusChange = async (
     foreshadowId: string,
     newStatus: string
   ) => {
+    if (needsConfirmation(newStatus)) {
+      const foreshadow = foreshadows.find((f) => f.id === foreshadowId);
+      setConfirmDialog({
+        foreshadowId,
+        foreshadow,
+        newStatus,
+        open: true,
+      });
+      return;
+    }
+
     try {
       setStatusUpdating(foreshadowId);
       const res = await fetch(
@@ -292,6 +319,34 @@ export default function ForeshadowsPage() {
     } catch {
     } finally {
       setStatusUpdating(null);
+    }
+  };
+
+  const confirmStatusChange = async () => {
+    if (!confirmDialog.foreshadowId || !confirmDialog.newStatus) return;
+
+    try {
+      setStatusUpdating(confirmDialog.foreshadowId);
+      const res = await fetch(
+        `/api/projects/${projectId}/foreshadows/${confirmDialog.foreshadowId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: confirmDialog.newStatus.toLowerCase() }),
+        }
+      );
+      if (res.ok) {
+        fetchForeshadows();
+      }
+    } catch {
+    } finally {
+      setStatusUpdating(null);
+      setConfirmDialog({
+        foreshadowId: "",
+        foreshadow: null,
+        newStatus: "",
+        open: false,
+      });
     }
   };
 
@@ -929,6 +984,66 @@ export default function ForeshadowsPage() {
           </div>
         )}
       </main>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={confirmDialog.open} onOpenChange={() => setConfirmDialog({ ...confirmDialog, open: false })}>
+        <DialogContent className="bg-white border-[var(--border)] max-w-md shadow-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[var(--text-primary)] flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-[var(--danger)]" />
+              确认操作
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-[var(--text-secondary)] mb-4">
+              确定要将此伏笔标记为「{STATUS_CONFIG[confirmDialog.newStatus]?.label || confirmDialog.newStatus}」吗？
+            </p>
+            {confirmDialog.newStatus === "DEPRECATED" && (
+              <div className="p-3 rounded bg-[var(--danger-subtle)] border border-[var(--danger)] mb-4">
+                <p className="text-xs text-[var(--danger)]">
+                  此操作将废弃该伏笔，标记后将不会在后续章节中被追踪。请确保该伏笔已不再需要。
+                </p>
+              </div>
+            )}
+            {confirmDialog.newStatus === "FULL_PAYOFF" && (
+              <div className="p-3 rounded bg-[var(--success-subtle)] border border-[var(--success)] mb-4">
+                <p className="text-xs text-[var(--success)]">
+                  恭喜！完全回收此伏笔后，系统将从待回收列表中移除它。
+                </p>
+              </div>
+            )}
+            {confirmDialog.foreshadow && (
+              <div className="p-3 rounded bg-[var(--bg)] border border-[var(--border)]">
+                <p className="text-xs text-[var(--text-muted)] mb-1">伏笔内容</p>
+                <p className="text-sm text-[var(--text-primary)]">{confirmDialog.foreshadow.clueText}</p>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border)]">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDialog({ ...confirmDialog, open: false })}
+              className="paper-btn-ghost"
+            >
+              取消
+            </Button>
+            <Button
+              onClick={confirmStatusChange}
+              disabled={statusUpdating === confirmDialog.foreshadowId}
+              className={`${
+                confirmDialog.newStatus === "DEPRECATED"
+                  ? "bg-[var(--danger)] hover:bg-[var(--danger-hover)]"
+                  : "paper-btn-primary"
+              }`}
+            >
+              {statusUpdating === confirmDialog.foreshadowId && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              确认{STATUS_CONFIG[confirmDialog.newStatus]?.label || confirmDialog.newStatus}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

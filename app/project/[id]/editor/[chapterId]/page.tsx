@@ -417,17 +417,17 @@ export default function EditorPage() {
                   </>
                 )}
 
-                {foreshadows.filter(f => f.status !== "full_payoff" && f.status !== "deprecated").length > 0 && (
+                {foreshadows.filter(f => f.status !== "FULL_PAYOFF" && f.status !== "DEPRECATED").length > 0 && (
                   <>
                     <hr className="rule" style={{ margin: "var(--space-6) 0 var(--space-4)" }} />
                     <p className="type-label" style={{ marginBottom: "var(--space-3)" }}>
-                      伏笔 · {foreshadows.filter(f => f.status !== "full_payoff" && f.status !== "deprecated").length}
+                      伏笔 · {foreshadows.filter(f => f.status !== "FULL_PAYOFF" && f.status !== "DEPRECATED").length}
                     </p>
-                    {foreshadows.filter(f => f.status !== "full_payoff" && f.status !== "deprecated").slice(0, 5).map((f: any) => (
+                    {foreshadows.filter(f => f.status !== "FULL_PAYOFF" && f.status !== "DEPRECATED").slice(0, 5).map((f: any) => (
                       <div key={f.id} style={{ padding: "var(--space-3)", marginBottom: "var(--space-1)", background: "var(--cream)", borderRadius: "var(--radius)" }}>
                         <p className="type-body" style={{ fontSize: "0.8125rem", lineHeight: 1.55 }}>{f.clueText}</p>
-                        <span className={`badge ${f.status === "conflict" ? "badge-danger" : f.urgencyScore > 0.7 ? "badge-warning" : "badge-draft"}`} style={{ marginTop: "var(--space-2)" }}>
-                          {f.status === "planted" ? "已埋设" : f.status === "reminded" ? "已提醒" : f.status === "deepened" ? "已深化" : f.status === "partial_payoff" ? "部分回收" : f.status === "conflict" ? "冲突" : f.status}
+                        <span className={`badge ${f.status === "CONFLICT" ? "badge-danger" : f.urgencyScore > 0.7 ? "badge-warning" : "badge-draft"}`} style={{ marginTop: "var(--space-2)" }}>
+                          {f.status === "PLANTED" ? "已埋设" : f.status === "REMINDED" ? "已提醒" : f.status === "DEEPENED" ? "已深化" : f.status === "PARTIAL_PAYOFF" ? "部分回收" : f.status === "CONFLICT" ? "冲突" : f.status}
                         </span>
                       </div>
                     ))}

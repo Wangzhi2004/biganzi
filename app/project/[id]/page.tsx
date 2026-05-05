@@ -160,8 +160,8 @@ export default function ProjectDashboard() {
   const avgQuality = confirmedChapters.length > 0
     ? Math.round(confirmedChapters.reduce((s, c) => s + (c.qualityScore || 0), 0) / confirmedChapters.length)
     : 0;
-  const unrecovered = foreshadows.filter(f => f.status !== "full_payoff" && f.status !== "deprecated");
-  const highRisk = foreshadows.filter(f => f.urgencyScore > 0.7 || f.status === "conflict");
+  const unrecovered = foreshadows.filter(f => f.status !== "FULL_PAYOFF" && f.status !== "DEPRECATED");
+  const highRisk = foreshadows.filter(f => f.urgencyScore > 0.7 || f.status === "CONFLICT");
   const curCh = currentProject?.currentChapter || 0;
   const staleChars = characters.filter(
     c => c.lastSeenChapter != null && curCh - c.lastSeenChapter > 10 && c.roleType !== "minor"

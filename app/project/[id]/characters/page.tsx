@@ -63,6 +63,10 @@ interface Character {
   wound: string | null;
   secret: string | null;
   moralBoundary: string | null;
+  temptation: string | null;
+  infoBoundary: string | null;
+  decisionPreference: string | null;
+  growthStage: string | null;
   speechPattern: string | null;
   currentGoal: string | null;
   currentLocation: string | null;
@@ -251,6 +255,10 @@ export default function CharactersPage() {
           wound: newCharacter.wound || undefined,
           secret: newCharacter.secret || undefined,
           moralBoundary: newCharacter.moralBoundary || undefined,
+          temptation: newCharacter.temptation || undefined,
+          infoBoundary: newCharacter.infoBoundary || undefined,
+          decisionPreference: newCharacter.decisionPreference || undefined,
+          growthStage: newCharacter.growthStage || undefined,
           speechPattern: newCharacter.speechPattern || undefined,
           currentGoal: newCharacter.currentGoal || undefined,
           currentLocation: newCharacter.currentLocation || undefined,
@@ -961,35 +969,35 @@ export default function CharactersPage() {
                     />
                   )}
 
-                  {(selectedCharacter as any).temptation && (
+                  {selectedCharacter.temptation && (
                     <DetailField
                       icon={<Target className="w-4 h-4 text-[var(--danger)]" />}
                       label="诱惑"
-                      value={(selectedCharacter as any).temptation}
+                      value={selectedCharacter.temptation}
                     />
                   )}
 
-                  {(selectedCharacter as any).infoBoundary && (
+                  {selectedCharacter.infoBoundary && (
                     <DetailField
                       icon={<Eye className="w-4 h-4 text-[var(--text-muted)]" />}
                       label="信息边界"
-                      value={(selectedCharacter as any).infoBoundary}
+                      value={selectedCharacter.infoBoundary}
                     />
                   )}
 
-                  {(selectedCharacter as any).decisionPreference && (
+                  {selectedCharacter.decisionPreference && (
                     <DetailField
                       icon={<Compass className="w-4 h-4 text-[var(--accent)]" />}
                       label="决策偏好"
-                      value={(selectedCharacter as any).decisionPreference}
+                      value={selectedCharacter.decisionPreference}
                     />
                   )}
 
-                  {(selectedCharacter as any).growthStage && (
+                  {selectedCharacter.growthStage && (
                     <DetailField
                       icon={<TrendingUp className="w-4 h-4 text-[var(--success)]" />}
                       label="成长阶段"
-                      value={(selectedCharacter as any).growthStage}
+                      value={selectedCharacter.growthStage}
                     />
                   )}
 
