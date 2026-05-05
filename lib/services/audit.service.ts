@@ -36,6 +36,8 @@ export const auditService = {
             readabilityScore: report.readabilityScore,
             risks: report.risks,
             rewriteActions: report.rewriteActions,
+            conflictPoints: report.conflictPoints,
+            enhancementSuggestions: report.enhancementSuggestions,
           },
           update: {
             overallStatus: status,
@@ -52,6 +54,8 @@ export const auditService = {
             readabilityScore: report.readabilityScore,
             risks: report.risks,
             rewriteActions: report.rewriteActions,
+            conflictPoints: report.conflictPoints,
+            enhancementSuggestions: report.enhancementSuggestions,
           },
         });
 
