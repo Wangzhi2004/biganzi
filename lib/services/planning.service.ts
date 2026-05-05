@@ -5,6 +5,125 @@ import { prisma } from "@/lib/prisma";
 import type { ChapterFunction } from "@/types";
 
 export const planningService = {
+  async checkProjectRisks(projectId: string): Promise<{
+    highRiskForeshadows: any[];
+    staleCharacters: any[];
+    lowQualityChapters: any[];
+    pacingIssues: any[];
+    foreshadowBacklog: any[];
+    summary: { totalRisks: number; highCount: number; mediumCount: number };
+  }> {
+    const [foreshadows, characters, chapters] = await Promise.all([
+      prisma.foreshadow.findMany({
+        where: { projectId },
+        select: {
+          id: true,
+          clueText: true,
+          status: true,
+          urgencyScore: true,
+          heatScore: true,
+          plantedChapter: true,
+          expectedPayoffStart: true,
+          expectedPayoffEnd: true,
+        },
+      }),
+      prisma.character.findMany({
+        where: { projectId },
+        select: {
+          id: true,
+          name: true,
+          roleType: true,
+          lastSeenChapter: true,
+        },
+      }),
+      prisma.chapter.findMany({
+        where: { projectId },
+        select: {
+          id: true,
+          chapterNumber: true,
+          title: true,
+          qualityScore: true,
+          auditStatus: true,
+        },
+      }),
+    ]);
+
+    const currentChapter = Math.max(...chapters.map((c) => c.chapterNumber), 0);
+
+    const highRiskForeshadows = foreshadows.filter((f) => {
+      const isHighUrgency = f.urgencyScore > 0.7;
+      const isOverdue =
+        f.expectedPayoffEnd !== null &&
+        currentChapter > f.expectedPayoffEnd &&
+        f.status !== "FULL_PAYOFF" &&
+        f.status !== "DEPRECATED";
+      const isHighHeat = f.heatScore > 0.8;
+      return isHighUrgency || isOverdue || isHighHeat;
+    });
+
+    const staleCharacters = characters.filter((c) => {
+      if (c.lastSeenChapter === null) return false;
+      return currentChapter - c.lastSeenChapter > 10;
+    });
+
+    const lowQualityChapters = chapters.filter(
+      (c) => c.qualityScore !== null && c.qualityScore < 60
+    );
+
+    const pacingIssues = [];
+    const recentChapters = chapters
+      .slice(-10)
+      .sort((a, b) => a.chapterNumber - b.chapterNumber);
+    const avgScore =
+      recentChapters.reduce((sum, c) => sum + (c.qualityScore || 0), 0) /
+      recentChapters.length;
+    if (avgScore < 70) {
+      pacingIssues.push({
+        type: "warning",
+        message: `最近10章质量平均分较低 (${avgScore.toFixed(1)})，建议关注`,
+      });
+    }
+
+    const unresolvedForeshadows = foreshadows.filter(
+      (f) => f.status !== "FULL_PAYOFF" && f.status !== "DEPRECATED"
+    );
+    if (unresolvedForeshadows.length > 15) {
+      pacingIssues.push({
+        type: "warning",
+        message: `未回收伏笔过多 (${unresolvedForeshadows.length}个)，建议加快回收节奏`,
+      });
+    }
+
+    const foreshadowBacklog = foreshadows
+      .filter(
+        (f) =>
+          f.expectedPayoffStart !== null &&
+          f.expectedPayoffStart <= currentChapter &&
+          f.status !== "FULL_PAYOFF" &&
+          f.status !== "DEPRECATED"
+      )
+      .sort((a, b) => (a.expectedPayoffStart || 0) - (b.expectedPayoffStart || 0));
+
+    const totalRisks =
+      highRiskForeshadows.length +
+      staleCharacters.length +
+      lowQualityChapters.length +
+      pacingIssues.length;
+
+    return {
+      highRiskForeshadows,
+      staleCharacters,
+      lowQualityChapters,
+      pacingIssues,
+      foreshadowBacklog,
+      summary: {
+        totalRisks,
+        highCount: highRiskForeshadows.length + lowQualityChapters.length,
+        mediumCount: staleCharacters.length + pacingIssues.length,
+      },
+    };
+  },
+
   async recommendNextFunction(
     projectId: string
   ): Promise<{ suggestedFunction: string; reasoning: string }> {

@@ -33,6 +33,8 @@ import {
   Clock,
   Brain,
   Layers,
+  XCircle,
+  CheckCircle2,
 } from "lucide-react";
 import {
   PROJECT_STATUS_LABELS,
@@ -98,6 +100,9 @@ export default function ProjectDashboard() {
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [latestChapter, setLatestChapter] = useState<any>(null);
   const [latestChapterLoading, setLatestChapterLoading] = useState(false);
+  const [riskReport, setRiskReport] = useState<any>(null);
+  const [riskLoading, setRiskLoading] = useState(false);
+  const [showRiskModal, setShowRiskModal] = useState(false);
   const fetchedRef = useRef(false);
 
   useEffect(() => {
@@ -182,6 +187,22 @@ export default function ProjectDashboard() {
     }
   };
 
+  const handleCheckRisks = async () => {
+    try {
+      setRiskLoading(true);
+      const res = await fetch(`/api/projects/${projectId}/risk`);
+      if (res.ok) {
+        const data = await res.json();
+        setRiskReport(data.data);
+        setShowRiskModal(true);
+      }
+    } catch {
+      toast({ title: "检查失败", description: "请稍后重试", variant: "destructive" } as any);
+    } finally {
+      setRiskLoading(false);
+    }
+  };
+
   if (pLoading || cLoading || dataLoading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg)" }}>
@@ -230,8 +251,9 @@ export default function ProjectDashboard() {
           <button className="btn-outline" onClick={() => router.push(`/project/${projectId}/evolution`)}>
             <Cpu width={13} height={13} /> 自进化
           </button>
-          <button className="btn-outline">
-            <Shield width={13} height={13} /> 检查风险
+          <button className="btn-outline" onClick={handleCheckRisks} disabled={riskLoading}>
+            {riskLoading ? <Loader2 width={13} height={13} className="animate-spin" /> : <Shield width={13} height={13} />}
+            {riskLoading ? "检查中..." : "检查风险"}
           </button>
           <button className="btn-solid" disabled={isGenerating} onClick={handleGenerate}>
             {isGenerating ? <Loader2 width={14} height={14} className="animate-spin" /> : <Sparkles width={14} height={14} />}
@@ -565,5 +587,171 @@ export default function ProjectDashboard() {
         </div>
       )}
     </div>
+
+    {/* ── 风险检查弹窗 ── */}
+    {showRiskModal && (
+      <div style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+        padding: "var(--space-6)",
+      }} onClick={() => setShowRiskModal(false)}>
+        <div style={{
+          background: "var(--surface)",
+          borderRadius: "var(--radius-lg)",
+          maxWidth: "600px",
+          width: "100%",
+          maxHeight: "80vh",
+          overflow: "auto",
+        }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ padding: "var(--space-6)", borderBottom: "1px solid var(--border)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+              <Shield width={20} height={20} style={{ color: "var(--accent)" }} />
+              <h2 className="type-display" style={{ fontSize: "1.25rem", color: "var(--text)" }}>全书风险检查报告</h2>
+            </div>
+            <div style={{ display: "flex", gap: "var(--space-6)", marginTop: "var(--space-4)" }}>
+              <div>
+                <p className="type-display" style={{ fontSize: "1.5rem", fontWeight: 600, color: riskReport?.summary.totalRisks > 0 ? "var(--rose)" : "var(--forest)" }}>
+                  {riskReport?.summary.totalRisks || 0}
+                </p>
+                <p className="type-caption">总风险数</p>
+              </div>
+              <div>
+                <p className="type-display" style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--rose)" }}>
+                  {riskReport?.summary.highCount || 0}
+                </p>
+                <p className="type-caption">高风险</p>
+              </div>
+              <div>
+                <p className="type-display" style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--ochre)" }}>
+                  {riskReport?.summary.mediumCount || 0}
+                </p>
+                <p className="type-caption">中等风险</p>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ padding: "var(--space-6)" }}>
+            {riskReport?.highRiskForeshadows?.length > 0 && (
+              <div style={{ marginBottom: "var(--space-6)" }}>
+                <h3 style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+                  <AlertTriangle width={14} height={14} style={{ color: "var(--rose)" }} />
+                  <span className="type-label" style={{ fontWeight: 500 }}>高风险伏笔</span>
+                  <span className="badge badge-danger">{riskReport.highRiskForeshadows.length}</span>
+                </h3>
+                <div style={{ background: "var(--rose-50)", borderRadius: "var(--radius)", padding: "var(--space-3)" }}>
+                  {riskReport.highRiskForeshadows.map((f: any, i: number) => (
+                    <div key={i} style={{ padding: "var(--space-2) 0", borderBottom: i < riskReport.highRiskForeshadows.length - 1 ? "1px solid var(--border-faint)" : "none" }}>
+                      <p className="type-body" style={{ fontSize: "0.875rem" }}>{f.clueText}</p>
+                      <p className="type-caption">
+                        埋设章节: 第{f.plantedChapter}章 · 
+                        {f.urgencyScore > 0.7 && <span style={{ color: "var(--rose)" }}>紧急度高 </span>}
+                        {f.heatScore > 0.8 && <span style={{ color: "var(--ochre)" }}>热度高 </span>}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {riskReport?.lowQualityChapters?.length > 0 && (
+              <div style={{ marginBottom: "var(--space-6)" }}>
+                <h3 style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+                  <XCircle width={14} height={14} style={{ color: "var(--rose)" }} />
+                  <span className="type-label" style={{ fontWeight: 500 }}>低质量章节</span>
+                  <span className="badge badge-danger">{riskReport.lowQualityChapters.length}</span>
+                </h3>
+                <div style={{ background: "var(--rose-50)", borderRadius: "var(--radius)", padding: "var(--space-3)" }}>
+                  {riskReport.lowQualityChapters.map((c: any, i: number) => (
+                    <div key={i} style={{ padding: "var(--space-2) 0", borderBottom: i < riskReport.lowQualityChapters.length - 1 ? "1px solid var(--border-faint)" : "none" }}>
+                      <p className="type-body" style={{ fontSize: "0.875rem" }}>
+                        第{c.chapterNumber}章 {c.title}
+                      </p>
+                      <p className="type-caption" style={{ color: "var(--rose)" }}>
+                        质量评分: {c.qualityScore?.toFixed(1)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {riskReport?.staleCharacters?.length > 0 && (
+              <div style={{ marginBottom: "var(--space-6)" }}>
+                <h3 style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+                  <Users width={14} height={14} style={{ color: "var(--ochre)" }} />
+                  <span className="type-label" style={{ fontWeight: 500 }}>长期未出场角色</span>
+                  <span className="badge badge-warning">{riskReport.staleCharacters.length}</span>
+                </h3>
+                <div style={{ background: "var(--ochre-50)", borderRadius: "var(--radius)", padding: "var(--space-3)" }}>
+                  {riskReport.staleCharacters.map((c: any, i: number) => (
+                    <div key={i} style={{ padding: "var(--space-2) 0", borderBottom: i < riskReport.staleCharacters.length - 1 ? "1px solid var(--border-faint)" : "none" }}>
+                      <p className="type-body" style={{ fontSize: "0.875rem" }}>
+                        {c.name} ({c.roleType})
+                      </p>
+                      <p className="type-caption">
+                        最后出场: 第{c.lastSeenChapter}章
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {riskReport?.pacingIssues?.length > 0 && (
+              <div style={{ marginBottom: "var(--space-6)" }}>
+                <h3 style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+                  <TrendingUp width={14} height={14} style={{ color: "var(--ochre)" }} />
+                  <span className="type-label" style={{ fontWeight: 500 }}>节奏问题</span>
+                  <span className="badge badge-warning">{riskReport.pacingIssues.length}</span>
+                </h3>
+                <div style={{ background: "var(--ochre-50)", borderRadius: "var(--radius)", padding: "var(--space-3)" }}>
+                  {riskReport.pacingIssues.map((issue: any, i: number) => (
+                    <div key={i} style={{ padding: "var(--space-2) 0", borderBottom: i < riskReport.pacingIssues.length - 1 ? "1px solid var(--border-faint)" : "none" }}>
+                      <p className="type-body" style={{ fontSize: "0.875rem" }}>{issue.message}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {riskReport?.foreshadowBacklog?.length > 0 && (
+              <div style={{ marginBottom: "var(--space-6)" }}>
+                <h3 style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+                  <Layers width={14} height={14} style={{ color: "var(--accent)" }} />
+                  <span className="type-label" style={{ fontWeight: 500 }}>待回收伏笔</span>
+                  <span className="badge">{riskReport.foreshadowBacklog.length}</span>
+                </h3>
+                <div style={{ background: "var(--accent-subtle)", borderRadius: "var(--radius)", padding: "var(--space-3)" }}>
+                  {riskReport.foreshadowBacklog.map((f: any, i: number) => (
+                    <div key={i} style={{ padding: "var(--space-2) 0", borderBottom: i < riskReport.foreshadowBacklog.length - 1 ? "1px solid var(--border-faint)" : "none" }}>
+                      <p className="type-body" style={{ fontSize: "0.875rem" }}>{f.clueText}</p>
+                      <p className="type-caption">预计回收: 第{f.expectedPayoffStart}-{f.expectedPayoffEnd}章</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {riskReport?.summary.totalRisks === 0 && (
+              <div style={{ textAlign: "center", padding: "var(--space-8)" }}>
+                <CheckCircle2 width={48} height={48} style={{ color: "var(--forest)", marginBottom: "var(--space-4)" }} />
+                <p className="type-body" style={{ color: "var(--text-secondary)" }}>恭喜！您的作品目前没有检测到风险</p>
+              </div>
+            )}
+          </div>
+
+          <div style={{ padding: "var(--space-6)", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end" }}>
+            <button className="btn-solid" onClick={() => setShowRiskModal(false)}>
+              关闭
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   );
 }
