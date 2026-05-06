@@ -7,7 +7,8 @@ import {
   ChevronLeft, Toggle, Settings, Clock, BookOpen, Sparkles,
   Heart, Globe, Zap, Target, AlertCircle, Save, Loader2,
   CheckCircle2, Sun, Moon, Flame, TrendingUp, Users,
-  Calendar, Activity, TrendingDown, Minus,
+  Calendar, Activity, TrendingDown, Minus, Upload, X,
+  ChevronUp, ChevronDown, BarChart3,
 } from "lucide-react";
 
 interface AutoSerialConfig {
@@ -39,6 +40,8 @@ export default function AutoSerialPage() {
   const [generating, setGenerating] = useState(false);
   const [dailyReport, setDailyReport] = useState<any>(null);
   const [reportDate, setReportDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+  const [weeklyReports, setWeeklyReports] = useState<any[]>([]);
 
   const taskStats = {
     pending: tasks.filter(t => t.status === "pending").length,
@@ -86,11 +89,68 @@ export default function AutoSerialPage() {
     }
   }, [projectId, reportDate]);
 
+  const fetchWeeklyReports = useCallback(async () => {
+    try {
+      const reports: any[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split("T")[0];
+        const res = await fetch(`/api/projects/${projectId}/auto-serial/daily-report?date=${dateStr}`);
+        if (res.ok) {
+          const data = await res.json();
+          reports.push(data.data);
+        }
+      }
+      setWeeklyReports(reports);
+    } catch (error) {
+      console.error("Failed to fetch weekly reports:", error);
+    }
+  }, [projectId]);
+
   useEffect(() => {
     fetchConfig();
     fetchTasks();
     fetchDailyReport();
-  }, [fetchConfig, fetchTasks, fetchDailyReport]);
+    fetchWeeklyReports();
+  }, [fetchConfig, fetchTasks, fetchDailyReport, fetchWeeklyReports]);
+
+  const toggleTaskSelection = (taskId: string) => {
+    setSelectedTasks(prev =>
+      prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]
+    );
+  };
+
+  const handleClearSelection = () => {
+    setSelectedTasks([]);
+  };
+
+  const handleBatchPublish = async () => {
+    try {
+      for (const taskId of selectedTasks) {
+        await fetch(`/api/projects/${projectId}/auto-serial/tasks/${taskId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "publish" }),
+        });
+      }
+      await fetchTasks();
+      setSelectedTasks([]);
+    } catch (error) {
+      console.error("Failed to batch publish:", error);
+    }
+  };
+
+  const handleReorderTasks = async (fromIndex: number, toIndex: number) => {
+    try {
+      const reordered = [...tasks];
+      const [removed] = reordered.splice(fromIndex, 1);
+      reordered.splice(toIndex, 0, removed);
+      setTasks(reordered);
+    } catch (error) {
+      console.error("Failed to reorder tasks:", error);
+    }
+  };
 
   const handleGenerateNow = async () => {
     try {
@@ -721,6 +781,88 @@ export default function AutoSerialPage() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-6 mb-6">
+                  <div className="bg-[var(--bg)] rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <BarChart3 className="w-4 h-4 text-[var(--accent)]" />
+                      <span className="text-sm font-medium text-[var(--text-primary)]">近7日产量趋势</span>
+                    </div>
+                    <div className="flex items-end justify-between h-24 gap-2">
+                      {weeklyReports.map((report, index) => {
+                        const maxChapters = Math.max(...weeklyReports.map(r => r?.chaptersGenerated || 0), 1);
+                        const height = maxChapters > 0 ? ((report?.chaptersGenerated || 0) / maxChapters) * 100 : 0;
+                        return (
+                          <div key={index} className="flex-1 flex flex-col items-center gap-1">
+                            <div
+                              className="w-full bg-[var(--accent)]/30 rounded-t transition-all hover:bg-[var(--accent)]/50"
+                              style={{ height: `${height}%`, minHeight: height > 0 ? "4px" : "4px" }}
+                            />
+                            <span className="text-xs text-[var(--text-muted)]">
+                              {new Date(report?.date || new Date()).toLocaleDateString("zh-CN", { weekday: "short" })}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="bg-[var(--bg)] rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Sparkles className="w-4 h-4 text-[var(--forest)]" />
+                      <span className="text-sm font-medium text-[var(--text-primary)]">近7日质量趋势</span>
+                    </div>
+                    <div className="flex items-end justify-between h-24 gap-2">
+                      {weeklyReports.map((report, index) => {
+                        const maxScore = 100;
+                        const height = ((report?.avgQualityScore || 0) / maxScore) * 100;
+                        return (
+                          <div key={index} className="flex-1 flex flex-col items-center gap-1">
+                            <div
+                              className={`w-full rounded-t transition-all ${
+                                height >= 80 ? "bg-[var(--forest)]/30 hover:bg-[var(--forest)]/50" :
+                                height >= 70 ? "bg-[var(--accent)]/30 hover:bg-[var(--accent)]/50" :
+                                "bg-[var(--rose)]/30 hover:bg-[var(--rose)]/50"
+                              }`}
+                              style={{ height: `${height}%`, minHeight: "4px" }}
+                            />
+                            <span className="text-xs text-[var(--text-muted)]">
+                              {Math.round(report?.avgQualityScore || 0)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-3">历史日报</h3>
+                  <div className="grid grid-cols-7 gap-2">
+                    {weeklyReports.map((report, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setReportDate(report?.date || new Date().toISOString().split("T")[0])}
+                        className={`p-2 rounded-lg text-center transition-colors ${
+                          reportDate === report?.date
+                            ? "bg-[var(--accent)] text-white"
+                            : "bg-[var(--bg)] hover:bg-[var(--border)]"
+                        }`}
+                      >
+                        <p className="text-xs font-medium">
+                          {new Date(report?.date || new Date()).getDate()}
+                        </p>
+                        <p className={`text-xs ${reportDate === report?.date ? "text-white/70" : "text-[var(--text-muted)]"}`}>
+                          {new Date(report?.date || new Date()).toLocaleDateString("zh-CN", { weekday: "short" })}
+                        </p>
+                        {report?.chaptersGenerated > 0 && (
+                          <p className={`text-xs mt-1 ${reportDate === report?.date ? "text-white/70" : "text-[var(--accent)]"}`}>
+                            {report.chaptersGenerated}章
+                          </p>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div>
                   <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-3">智能建议</h3>
                   <div className="space-y-2">
@@ -753,24 +895,47 @@ export default function AutoSerialPage() {
               <div className="flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-[var(--accent)]" />
                 <h2 className="text-lg font-semibold text-[var(--text-primary)]">待发布队列</h2>
+                {selectedTasks.length > 0 && (
+                  <span className="text-sm text-[var(--accent)]">已选择 {selectedTasks.length} 项</span>
+                )}
               </div>
-              <button
-                onClick={handleGenerateNow}
-                disabled={generating}
-                className="flex items-center gap-2 px-3 py-1.5 bg-[var(--accent)] text-white text-sm rounded-lg hover:bg-[var(--accent-hover)] disabled:opacity-50"
-              >
-                {generating ? (
+              <div className="flex items-center gap-2">
+                {selectedTasks.length > 0 && (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    生成中...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    立即生成
+                    <button
+                      onClick={handleBatchPublish}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-[var(--forest)] text-white text-sm rounded-lg hover:bg-[var(--forest)]/80"
+                    >
+                      <Upload className="w-4 h-4" />
+                      批量发布 ({selectedTasks.length})
+                    </button>
+                    <button
+                      onClick={handleClearSelection}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg hover:bg-[var(--border)]"
+                    >
+                      <X className="w-4 h-4" />
+                      取消选择
+                    </button>
                   </>
                 )}
-              </button>
+                <button
+                  onClick={handleGenerateNow}
+                  disabled={generating}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-[var(--accent)] text-white text-sm rounded-lg hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                >
+                  {generating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      生成中...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      立即生成
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-4 gap-3 mb-4">
@@ -804,7 +969,21 @@ export default function AutoSerialPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-[var(--border)]">
-                        <th className="text-left px-4 py-3 text-xs font-medium text-[var(--text-muted)]">章节</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-[var(--text-muted)]">
+                          <input
+                            type="checkbox"
+                            checked={selectedTasks.length === tasks.length && tasks.length > 0}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedTasks(tasks.filter(t => t.status === "approved").map(t => t.id));
+                              } else {
+                                setSelectedTasks([]);
+                              }
+                            }}
+                            className="mr-2"
+                          />
+                          章节
+                        </th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-[var(--text-muted)]">状态</th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-[var(--text-muted)]">评分</th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-[var(--text-muted)]">重试次数</th>
@@ -812,10 +991,38 @@ export default function AutoSerialPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {tasks.map((task) => (
-                        <tr key={task.id} className="border-b border-[var(--border-faint)] hover:bg-[var(--bg)]">
+                      {tasks.map((task, index) => (
+                        <tr
+                          key={task.id}
+                          className={`border-b border-[var(--border-faint)] hover:bg-[var(--bg)] ${
+                            selectedTasks.includes(task.id) ? "bg-[var(--accent)]/5" : ""
+                          }`}
+                        >
                           <td className="px-4 py-3">
-                            <span className="font-medium text-[var(--text-primary)]">第{task.chapterNumber}章</span>
+                            <input
+                              type="checkbox"
+                              checked={selectedTasks.includes(task.id)}
+                              onChange={() => toggleTaskSelection(task.id)}
+                              disabled={task.status !== "approved"}
+                              className="mr-2"
+                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => index > 0 && handleReorderTasks(index, index - 1)}
+                                disabled={index === 0}
+                                className="p-1 hover:bg-[var(--border)] rounded disabled:opacity-30"
+                              >
+                                <ChevronUp className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => index < tasks.length - 1 && handleReorderTasks(index, index + 1)}
+                                disabled={index === tasks.length - 1}
+                                className="p-1 hover:bg-[var(--border)] rounded disabled:opacity-30"
+                              >
+                                <ChevronDown className="w-4 h-4" />
+                              </button>
+                              <span className="font-medium text-[var(--text-primary)]">第{task.chapterNumber}章</span>
+                            </div>
                           </td>
                           <td className="px-4 py-3">
                             <span className={`text-xs px-2 py-1 rounded-full ${getStatusClass(task.status)}`}>
