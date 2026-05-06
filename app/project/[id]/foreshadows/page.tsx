@@ -207,12 +207,40 @@ export default function ForeshadowsPage() {
     foreshadow: Foreshadow | null;
     newStatus: string;
     open: boolean;
+    payoffPlan: { timing?: string; method?: string; scene?: string } | null;
   }>({
     foreshadowId: "",
     foreshadow: null,
     newStatus: "",
     open: false,
+    payoffPlan: null,
   });
+
+  const [generatingPayoffPlan, setGeneratingPayoffPlan] = useState(false);
+
+  const generatePayoffPlan = async () => {
+    if (!confirmDialog.foreshadowId) return;
+
+    try {
+      setGeneratingPayoffPlan(true);
+      const res = await fetch(`/api/projects/${projectId}/foreshadows/${confirmDialog.foreshadowId}/plan`);
+      if (res.ok) {
+        const data = await res.json();
+        setConfirmDialog({
+          ...confirmDialog,
+          payoffPlan: {
+            timing: data.timing,
+            method: data.method,
+            scene: data.scene,
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Failed to generate payoff plan:", error);
+    } finally {
+      setGeneratingPayoffPlan(false);
+    }
+  };
   const [newForeshadow, setNewForeshadow] = useState({
     plantedChapter: "",
     clueText: "",
@@ -986,18 +1014,22 @@ export default function ForeshadowsPage() {
       </main>
 
       {/* Confirmation Dialog */}
-      <Dialog open={confirmDialog.open} onOpenChange={() => setConfirmDialog({ ...confirmDialog, open: false })}>
-        <DialogContent className="bg-white border-[var(--border)] max-w-md shadow-lg">
+      <Dialog open={confirmDialog.open} onOpenChange={() => setConfirmDialog({ ...confirmDialog, open: false, payoffPlan: null })}>
+        <DialogContent className="bg-white border-[var(--border)] max-w-lg shadow-lg">
           <DialogHeader>
             <DialogTitle className="text-[var(--text-primary)] flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-[var(--danger)]" />
-              确认操作
+              确认{STATUS_CONFIG[confirmDialog.newStatus]?.label || confirmDialog.newStatus}
             </DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <p className="text-sm text-[var(--text-secondary)] mb-4">
-              确定要将此伏笔标记为「{STATUS_CONFIG[confirmDialog.newStatus]?.label || confirmDialog.newStatus}」吗？
-            </p>
+            {confirmDialog.foreshadow && (
+              <div className="p-3 rounded bg-[var(--bg)] border border-[var(--border)] mb-4">
+                <p className="text-xs text-[var(--text-muted)] mb-1">伏笔内容</p>
+                <p className="text-sm text-[var(--text-primary)]">{confirmDialog.foreshadow.clueText}</p>
+              </div>
+            )}
+
             {confirmDialog.newStatus === "DEPRECATED" && (
               <div className="p-3 rounded bg-[var(--danger-subtle)] border border-[var(--danger)] mb-4">
                 <p className="text-xs text-[var(--danger)]">
@@ -1005,6 +1037,7 @@ export default function ForeshadowsPage() {
                 </p>
               </div>
             )}
+
             {confirmDialog.newStatus === "FULL_PAYOFF" && (
               <div className="p-3 rounded bg-[var(--success-subtle)] border border-[var(--success)] mb-4">
                 <p className="text-xs text-[var(--success)]">
@@ -1012,17 +1045,68 @@ export default function ForeshadowsPage() {
                 </p>
               </div>
             )}
-            {confirmDialog.foreshadow && (
-              <div className="p-3 rounded bg-[var(--bg)] border border-[var(--border)]">
-                <p className="text-xs text-[var(--text-muted)] mb-1">伏笔内容</p>
-                <p className="text-sm text-[var(--text-primary)]">{confirmDialog.foreshadow.clueText}</p>
+
+            {confirmDialog.newStatus === "PARTIAL_PAYOFF" && (
+              <div className="p-3 rounded bg-[var(--warning-subtle)] border border-[var(--warning)] mb-4">
+                <p className="text-xs text-[var(--warning)]">
+                  部分回收后，伏笔状态将变为"部分回收"，剩余线索将继续追踪。
+                </p>
+              </div>
+            )}
+
+            {["PARTIAL_PAYOFF", "FULL_PAYOFF"].includes(confirmDialog.newStatus) && (
+              <div className="mb-4">
+                <button
+                  onClick={generatePayoffPlan}
+                  disabled={generatingPayoffPlan}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[var(--accent-subtle)] hover:bg-[var(--accent)]/20 rounded-lg transition-colors"
+                >
+                  {generatingPayoffPlan ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      生成回收方案...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      生成AI回收方案
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {confirmDialog.payoffPlan && (
+              <div className="p-4 rounded bg-[var(--bg)] border border-[var(--border)] mb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Layers className="w-4 h-4 text-[var(--accent)]" />
+                  <span className="text-sm font-medium text-[var(--text-primary)]">AI回收方案</span>
+                </div>
+                {confirmDialog.payoffPlan.timing && (
+                  <div className="mb-2">
+                    <p className="text-xs text-[var(--text-muted)]">推荐回收时机</p>
+                    <p className="text-sm text-[var(--text-primary)]">{confirmDialog.payoffPlan.timing}</p>
+                  </div>
+                )}
+                {confirmDialog.payoffPlan.method && (
+                  <div className="mb-2">
+                    <p className="text-xs text-[var(--text-muted)]">回收方式</p>
+                    <p className="text-sm text-[var(--text-primary)]">{confirmDialog.payoffPlan.method}</p>
+                  </div>
+                )}
+                {confirmDialog.payoffPlan.scene && (
+                  <div>
+                    <p className="text-xs text-[var(--text-muted)]">建议场景</p>
+                    <p className="text-sm text-[var(--text-primary)]">{confirmDialog.payoffPlan.scene}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border)]">
             <Button
               variant="outline"
-              onClick={() => setConfirmDialog({ ...confirmDialog, open: false })}
+              onClick={() => setConfirmDialog({ ...confirmDialog, open: false, payoffPlan: null })}
               className="paper-btn-ghost"
             >
               取消
