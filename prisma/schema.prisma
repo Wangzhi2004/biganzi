@@ -740,3 +740,59 @@ model EvolutionCycle {
   @@index([status])
   @@index([startedAt])
 }
+
+model AutoSerialConfig {
+  projectId            String  @id
+  enabled              Boolean @default(false)
+  dailyChapterCount    Int     @default(1)
+  chapterWordCount     Int     @default(4000)
+  styleStrength        Int     @default(50)
+  pleasureDensity      Int     @default(50)
+  plotSpeed            String  @default("medium")
+  innovationLevel      String  @default("balanced")
+  dramaLevel           String  @default("moderate")
+  romanceWeight        String  @default("medium")
+  worldExpansionSpeed  String  @default("medium")
+  autoRewriteThreshold Int     @default(70)
+  requireHumanApproval Boolean @default(true)
+  preferredTime        String  @default("09:00")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model SerialTask {
+  id            String    @id @default(uuid())
+  projectId     String
+  chapterNumber Int
+  status        String
+  qualityScore  Float?
+  retryCount    Int       @default(0)
+  chapterId     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  chapter Chapter? @relation(fields: [chapterId], references: [id])
+
+  @@index([projectId])
+  @@index([status])
+  @@index([chapterNumber])
+}
+
+model SerialDailyStats {
+  projectId          String  @id
+  date               String
+  chaptersGenerated  Int     @default(0)
+  chaptersApproved   Int     @default(0)
+  chaptersRejected   Int     @default(0)
+  avgQualityScore    Float   @default(0)
+  totalWords         Int     @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, date], name: "projectId_date")
+}

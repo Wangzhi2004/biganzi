@@ -251,6 +251,9 @@ export default function ProjectDashboard() {
           <button className="btn-outline" onClick={() => router.push(`/project/${projectId}/evolution`)}>
             <Cpu width={13} height={13} /> 自进化
           </button>
+          <button className="btn-outline" onClick={() => router.push(`/project/${projectId}/auto-serial`)}>
+            <Zap width={13} height={13} /> 自动连载
+          </button>
           <button className="btn-outline" onClick={handleCheckRisks} disabled={riskLoading}>
             {riskLoading ? <Loader2 width={13} height={13} className="animate-spin" /> : <Shield width={13} height={13} />}
             {riskLoading ? "检查中..." : "检查风险"}
